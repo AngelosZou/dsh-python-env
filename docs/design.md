@@ -39,7 +39,7 @@ integration makes.
 
 | Half | Files | Role |
 | ---- | ----- | ---- |
-| Host | `lib/index.js`, `lib/tools/*` | Four model tools, skill, guidance section |
+| Host | `lib/index.js`, `lib/tools/*` | Five model tools, skill, guidance section |
 | Host | `lib/guard.js`, `lib/venv.js` | Workspace confinement, venv resolution |
 | Host | `lib/layout.js`, `lib/paths.js`, `lib/python.js` | Discovery, platform layouts, interpreter chains |
 | Host | `lib/runner.js`, `lib/pip.js`, `lib/envdir.js` | Subprocess seam, install chain, workspace caches |

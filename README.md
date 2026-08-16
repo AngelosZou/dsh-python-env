@@ -39,7 +39,7 @@ From a local checkout (development):
 dsh plugin --profile web add link:<absolute-path-to-this-repo>
 ```
 
-Then **restart the DSH backend** — the host composition loads at process start. The tools appear in new sessions: `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_remove`, plus the `python-env` skill.
+Then **restart the DSH backend** — the host composition loads at process start. The tools appear in new sessions: `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_uninstall`, `pyenv_remove`, plus the `python-env` skill.
 
 ## Usage
 
@@ -57,6 +57,7 @@ Agent side:
 pyenv_create                                  # -> .venv, interpreter path reported
 pyenv_install { packages: ["pytest>=8"] }     # installs into .venv
 pyenv_install { requirements: "requirements.txt" }
+pyenv_uninstall { packages: ["pytest"] }      # removes packages again
 pyenv_discover                                # inspect every environment
 # run code with the reported interpreter:
 #   Windows: <venv>\Scripts\python.exe    macOS/Linux: <venv>/bin/python
@@ -84,8 +85,8 @@ Behavior notes:
 | Path | Purpose |
 | ---- | ------- |
 | `cordis.patch.yml` | Profile patch layer inserting the `dsh-python-env` row |
-| `lib/index.js` | Host plugin: registers the four tools, the skill, and the guidance section |
-| `lib/tools/` | The four model tools (`discover` / `create` / `install` / `remove`) |
+| `lib/index.js` | Host plugin: registers the five tools, the skill, and the guidance section |
+| `lib/tools/` | The five model tools (`discover` / `create` / `install` / `uninstall` / `remove`) |
 | `lib/guard.js`, `lib/venv.js`, `lib/layout.js`, `lib/paths.js`, `lib/python.js` | Workspace confinement, venv resolution, discovery, platform layouts, interpreter chains |
 | `lib/runner.js`, `lib/pip.js`, `lib/envdir.js` | Subprocess seam, install chain, workspace caches |
 | `test/` | Runtime-free behavior tests (see Development) |

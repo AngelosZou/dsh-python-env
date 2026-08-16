@@ -39,7 +39,7 @@ dsh plugin --profile web add dsh-python-env
 dsh plugin --profile web add link:<本仓库绝对路径>
 ```
 
-然后**重启 DSH 后端**（宿主组合在进程启动时加载）。新会话中即出现 `pyenv_discover` / `pyenv_create` / `pyenv_install` / `pyenv_remove` 四个工具与 `python-env` 技能。
+然后**重启 DSH 后端**（宿主组合在进程启动时加载）。新会话中即出现 `pyenv_discover` / `pyenv_create` / `pyenv_install` / `pyenv_uninstall` / `pyenv_remove` 五个工具与 `python-env` 技能。
 
 ## 用法
 
@@ -57,6 +57,7 @@ Agent 侧：
 pyenv_create                                  # -> 创建 .venv 并报告解释器路径
 pyenv_install { packages: ["pytest>=8"] }     # 装入 .venv
 pyenv_install { requirements: "requirements.txt" }
+pyenv_uninstall { packages: ["pytest"] }      # 再卸载
 pyenv_discover                                # 查看全部环境
 # 用报告的解释器路径运行代码：
 #   Windows: <venv>\Scripts\python.exe    macOS/Linux: <venv>/bin/python
@@ -84,8 +85,8 @@ pyenv_discover                                # 查看全部环境
 | 路径 | 用途 |
 | ---- | ---- |
 | `cordis.patch.yml` | Profile 补丁层，插入 `dsh-python-env` 行 |
-| `lib/index.js` | 宿主插件：注册四个工具、技能与引导段 |
-| `lib/tools/` | 四个模型工具（`discover` / `create` / `install` / `remove`） |
+| `lib/index.js` | 宿主插件：注册五个工具、技能与引导段 |
+| `lib/tools/` | 五个模型工具（`discover` / `create` / `install` / `uninstall` / `remove`） |
 | `lib/guard.js`、`lib/venv.js`、`lib/layout.js`、`lib/paths.js`、`lib/python.js` | 工作区约束、venv 解析、发现、平台布局、解释器链 |
 | `lib/runner.js`、`lib/pip.js`、`lib/envdir.js` | Subprocess 通道、安装链、工作区缓存 |
 | `test/` | 无运行时行为测试（见开发） |

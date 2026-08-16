@@ -37,7 +37,7 @@ dsh plugin --profile web add link:<path-to-this-repo>
 # restart the DSH backend
 ```
 
-Host changes need a backend restart; the four `pyenv_*` tools and the
+Host changes need a backend restart; the five `pyenv_*` tools and the
 `python-env` skill then appear in new sessions.
 
 ## Before submitting

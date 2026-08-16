@@ -1,7 +1,7 @@
 {
   "name": "dsh-python-env",
   "version": "0.1.0",
-  "description": "DeepSeek Harness plugin: workspace-scoped Python virtual environment management for agents (pyenv_discover / pyenv_create / pyenv_install / pyenv_remove). Runs the standard library python -m venv / pip through the host subprocess channel instead of the sandboxed shell, so venv creation, pip bootstrapping, and package-index network access work on Windows/macOS/Linux. Every mutation stays inside the session workspace, the global Python environment is never touched, network failures fall back across PyPI mirrors and common local proxy ports, and no third-party environment manager (uv, virtualenv, ...) is required.",
+  "description": "DeepSeek Harness plugin: workspace-scoped Python virtual environment management for agents (pyenv_discover / pyenv_create / pyenv_install / pyenv_uninstall / pyenv_remove). Runs the standard library python -m venv / pip through the host subprocess channel instead of the sandboxed shell, so venv creation, pip bootstrapping, and package-index network access work on Windows/macOS/Linux. Every mutation stays inside the session workspace, the global Python environment is never touched, network failures fall back across PyPI mirrors and common local proxy ports, and no third-party environment manager (uv, virtualenv, ...) is required.",
   "keywords": [
     "dsh-plugin",
     "dsh",

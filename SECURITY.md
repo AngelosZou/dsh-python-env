@@ -103,7 +103,7 @@ Mitigations:
 - A second DSH process against the same workspace is not coordinated
   (documented limitation, not a security boundary breach).
 - The plugin's own code runs with host privileges; it is dependency-free
-  and its only execution surface is the four tools documented above.
+  and its only execution surface is the five tools documented above.
 
 ## Reporting a vulnerability
 
