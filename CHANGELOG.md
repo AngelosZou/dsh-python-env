@@ -57,4 +57,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chain, interpreter resolution, policy parity, secondary-directory
   compatibility, background jobs, and full tool smoke flows against mock
   services.
-- Cross-platform CI workflow (Node 20/24 × Ubuntu/Windows/macOS).
