@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildInstallArgv,
+  buildUninstallArgv,
   classifyNetworkFailure,
   ensurePip,
   normalizeIndexUrl,
@@ -68,6 +69,18 @@ test('buildInstallArgv: index and proxy omitted when unset', () => {
   assert.ok(!argv.includes('--index-url'))
   assert.ok(!argv.includes('--proxy'))
   assert.ok(!argv.includes('-r'))
+  assert.ok(!argv.includes('--upgrade'))
+})
+
+test('buildInstallArgv: upgrade flag', () => {
+  const argv = buildInstallArgv({ venvPython: 'p', specs: ['demo'], upgrade: true })
+  assert.ok(argv.includes('--upgrade'))
+  assert.equal(argv[argv.length - 1], 'demo')
+})
+
+test('buildUninstallArgv: shape', () => {
+  const argv = buildUninstallArgv('/ws/.venv/bin/python', ['a', 'b'])
+  assert.deepEqual(argv, ['/ws/.venv/bin/python', '-m', 'pip', 'uninstall', '--disable-pip-version-check', '-y', 'a', 'b'])
 })
 
 test('runInstallAttempts: mirror chain after network failures', async () => {

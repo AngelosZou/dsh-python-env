@@ -8,16 +8,16 @@
 [![Node.js >= 20](https://img.shields.io/badge/Node.js-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![npm version](https://img.shields.io/npm/v/dsh-python-env)](https://www.npmjs.com/package/dsh-python-env)
 [![GitHub issues](https://img.shields.io/github/issues/AngelosZou/dsh-python-env)](https://github.com/AngelosZou/dsh-python-env/issues)
-[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
 一个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件，为每个项目（工作区）提供面向 Agent 的 Python 虚拟环境管理：
 
-- **四个模型工具** —— `pyenv_discover`、`pyenv_create`、`pyenv_install`、`pyenv_remove`，外加 `python-env` 技能与 system-prompt 引导段。
+- **五个模型工具** —— `pyenv_discover`、`pyenv_create`、`pyenv_install`、`pyenv_uninstall`、`pyenv_remove`，外加 `python-env` 技能与 system-prompt 引导段。
 - 通过平台 **subprocess 通道**（宿主进程）运行**标准库** `python -m venv` / `pip`，而非沙箱 shell——venv 创建、`ensurepip` 引导、包索引网络访问在 shell 侧 pip 会失败的地方照常工作。
 - **镜像与代理回退** —— 网络类失败时按清华 TUNA → 阿里云 → 中科大 USTC 镜像链重试，并探测常见本地代理端口；`index` / `proxy` 参数可分别钉死。
 - **工作区约束** —— 所有路径都解析在工作区内（Windows 大小写不敏感）；缓存与临时状态位于 `<工作区>/.dsh-pyenv/`；命令为 argv 数组（不经 shell）；全局 Python 环境、宿主 pip 缓存、系统临时目录永不被触碰。
 - **跨平台** —— Windows / macOS / Linux 的布局与解释器链（`Scripts` 与 `bin`、`py -3` 与 `python3`）。
 - **零第三方依赖** —— 不需要 uv、virtualenv 或任何其他插件；缺失 pip 的环境用 `ensurepip` 离线修复。
+- **会话模式对齐** —— 写工具遵循会话沙箱模式，read-only 会话中拒绝执行；发现工具始终可用。
 
 ## 环境要求
 
@@ -49,7 +49,8 @@ Agent 侧：
 | ---- | ---- |
 | `pyenv_discover` | 按 `pyvenv.cfg` 标记或常见命名（`.venv`、`venv`、`env`、`.env`、`virtualenv`）在工作区内最多两层深度发现环境，报告路径、解释器、版本、pip 状态。 |
 | `pyenv_create` | 用 `python -m venv` 创建环境——支持 `name` / `root_dir` / 基础 `python` 参数，对已存在环境幂等。 |
-| `pyenv_install` | 把 `packages` 和/或 `requirements` 文件装入环境（显式 `venv` / 自动发现 / 自动创建 `.venv`）；`ensurepip` 修复缺失 pip；镜像/代理回退；`run_in_background` 支持长安装。 |
+| `pyenv_install` | 把 `packages` 和/或 `requirements` 文件装入环境（显式 `venv` / 自动发现 / 自动创建 `.venv`）；`ensurepip` 修复缺失 pip；镜像/代理回退；`upgrade` 升级；本地项目 editable 安装；`run_in_background` 支持长安装。 |
+| `pyenv_uninstall` | 从环境卸载包（`pip uninstall -y`）；离线；从不自动创建环境。 |
 | `pyenv_remove` | 只删除工作区内的真实环境（拒绝非环境目录与工作区逃逸）。 |
 
 ```text
@@ -63,7 +64,9 @@ pyenv_discover                                # 查看全部环境
 
 行为说明：
 
-- 未传 `venv` 时，`pyenv_install` 使用唯一发现的环境（优先 `.venv`），不存在则自动创建 `.venv`，存在多个则要求显式指定。
+- 写工具（create / install / uninstall / remove）遵循会话沙箱模式，**read-only** 会话中拒绝执行；发现工具仍可用。
+- 常见需求全覆盖：钉版本（`"pkg==1.2.3"`）、升级（`upgrade: true`）、按 `requirements.txt` 安装（`requirements`）、本地项目 editable 安装（`packages: ["-e", "."]`——editable 路径必须位于工作区内，远程/VCS editable URL 会被拒绝）。
+- 未传 `venv` 时，`pyenv_install` 使用唯一发现的环境（优先 `.venv`），不存在则自动创建 `.venv`，存在多个则要求显式指定；`pyenv_uninstall` 从不自动创建。
 - 安装结果报告每一次尝试（`index`、`proxy`、`exitCode`），安装走了哪条路一目了然。
 - 后台安装注册到 jobs 运行时——用 `job_output` 轮询、`job_kill` 停止；30 分钟硬上限生效。
 
@@ -98,6 +101,10 @@ npm test
 ```
 
 开发循环（含离线依赖解析）见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 安全
+
+安装包意味着执行第三方代码：`pyenv_install`（含自动创建 `.venv` 的路径）会以宿主用户权限从配置的索引下载并运行代码，editable 安装会原样引入工作区内的项目。插件的缓解措施包括：仅 HTTPS 索引、爆炸半径限定在工作区（被攻破的环境可用 `pyenv_remove` 一次性丢弃）、路由全程透明、会话模式对齐（read-only 会话无法触发任何安装）、按 profile 选择安装。完整威胁模型与缓解清单见 [SECURITY.md](SECURITY.md)。
 
 ## 文档
 

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `pyenv_uninstall`: uninstall packages from a workspace environment
+  (`pip uninstall -y`); fully offline and never auto-creates an environment.
+- `pyenv_install` `upgrade` flag (pip `--upgrade`).
+- Editable installs (`-e` / `--editable`) with workspace confinement: local
+  paths are validated and rewritten to their guarded absolute form; remote
+  and VCS editable URLs are rejected.
+- Session policy parity: the mutating tools consult the session's standing
+  sandbox policy and refuse to run in read-only sessions; they fail closed
+  when the policy service is absent. Discovery remains available everywhere.
+- Security documentation: an "Automated environment management risks"
+  section in SECURITY.md (malicious/typosquatted packages, hash pinning via
+  hashed requirements files, blast radius, transparency, policy parity) and
+  a Security section in both READMEs.
+
+### Changed
+
+- `pyenv_install` and `pyenv_uninstall` share one target-resolution core
+  (`resolveExistingVenv`).
+- Discovery no longer treats the scan root's own directory name as a
+  virtual-environment hint (a workspace literally named "venv" or "env" is
+  not mistaken for an environment).
+- The `python-env` skill and the guidance section now cover uninstall,
+  upgrade, editable installs, version pinning, and the read-only gate.
+
 ## [0.1.0] — 2026-08-16
 
 ### Added

@@ -63,6 +63,20 @@ No client half: the tools return plain structured results plus text renders.
   specs cannot inject shell syntax.
 - pip never runs against the global interpreter: the venv's own python is
   resolved per platform and invoked as `<venv-python> -m pip ...`.
+- Editable installs (`-e` / `--editable`) are confined too: targets must be
+  local paths inside the workspace (rewritten to their guarded absolute
+  form); remote and VCS editable URLs are rejected, so this execution
+  surface stays local and visible.
+
+## Session policy parity
+
+Host-side execution would otherwise outrank the mode the user granted the
+session, so every mutating tool starts by consulting the session's standing
+sandbox policy (`sandboxPolicy.resolve({ session })`, the multi-folder
+pattern): `read-only` sessions are refused with a clear error,
+`workspace-write` and `danger-full-access` pass, and an unmounted policy
+service fails closed. `pyenv_discover` stays available in every mode
+(read-only by construction).
 
 ## Tools
 
@@ -70,7 +84,8 @@ No client half: the tools return plain structured results plus text renders.
 | ---- | --------- | ----------- |
 | `pyenv_discover` | Bounded BFS (depth 2, ≤256 dirs, pruned noise subtrees) recognizing `pyvenv.cfg` markers or conventional names (`.venv`, `venv`, `env`, `.env`, `virtualenv`, `.virtualenv`); probes interpreter existence, version (capped), pip presence | safe (read-only) |
 | `pyenv_create` | Resolve a verified base interpreter (explicit arg or platform chain: `python` → `py -3` on Windows, `python3` → `python` on POSIX, all version-checked ≥3.8); run `<base> -m venv <target>`; idempotent on existing environments | exclusive |
-| `pyenv_install` | Resolve target (explicit `venv` / discovered / auto-created `.venv`); repair pip via `ensurepip` when missing; run the install attempt chain; foreground or background via `ctx.jobs` | exclusive |
+| `pyenv_install` | Resolve target (explicit `venv` / discovered / auto-created `.venv`) via the shared `resolveExistingVenv` core; validate specs (editable confinement); repair pip via `ensurepip` when missing; run the install attempt chain with optional `--upgrade`; foreground or background via `ctx.jobs` | exclusive |
+| `pyenv_uninstall` | Resolve target (never auto-created); run `pip uninstall -y`; fully offline | exclusive |
 | `pyenv_remove` | Delete a directory that carries the `pyvenv.cfg` marker, inside the workspace only | exclusive |
 
 Mutating tools declare `isConcurrencySafe: () => false`, so the tool
@@ -131,11 +146,12 @@ If ensurepip itself is absent, the error carries the Debian/Ubuntu
 
 `test/*.test.js` run without the DSH runtime (`node --test
 --test-isolation=none "test/*.test.js"`): pure-logic units (guard, paths,
-pip chain/classification/argv, JobLog, interpreter resolution) plus a smoke
-suite that applies the real plugin against a mock ctx and drives all four
-tools with fake subprocess/jobs services and a real temporary workspace.
-Because the real `defineTool` runs, every parameter and output schema is
-validated against the enforced JSON Schema subset at registration time.
+policy gate, venv target resolution, pip chain/classification/argv, JobLog,
+interpreter resolution) plus a smoke suite that applies the real plugin
+against a mock ctx and drives all five tools with fake subprocess/jobs
+services and a real temporary workspace. Because the real `defineTool`
+runs, every parameter and output schema is validated against the enforced
+JSON Schema subset at registration time.
 
 ## Known limitations
 
@@ -146,11 +162,14 @@ validated against the enforced JSON Schema subset at registration time.
 - **sdist builds** need a working compiler; the failure surfaces pip's own
   error (network for build deps uses the same mirror chain).
 - **conda environments** (no `pyvenv.cfg`) are not recognized.
+- **Editable installs are local-only**: `-e git+https://...` URLs are
+  rejected; clone the project into the workspace or install it as a plain
+  VCS requirement spec.
 - Version probing skips environments beyond the discovery probe cap, so
   very large workspaces may report `version: null` for some environments.
-- The plugin requires the platform subprocess and jobs services, which the
-  standard DSH profiles provide.
+- The plugin requires the platform subprocess, jobs, and sandbox-policy
+  services, which the standard DSH profiles provide.
 - The tools give the agent network egress limited to package indexes and
   the ability to execute arbitrary package build/install code inside the
   workspace venv — the same capability pip grants, now reachable from the
-  sandbox. See SECURITY.md for the threat model.
+  sandbox. See SECURITY.md for the threat model and mitigations.

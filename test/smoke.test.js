@@ -23,6 +23,8 @@ const skills = []
 const sections = []
 const jobsStarted = []
 let subprocessService = { spawn: () => { throw new Error('no subprocess mounted') } }
+let standingMode = 'workspace-write'
+let policyMounted = true
 
 const mockCtx = {
   tools: { register: (tool) => tools.push(tool) },
@@ -32,6 +34,9 @@ const mockCtx = {
     if (serviceName === 'subprocess') return subprocessService
     if (serviceName === 'jobs') {
       return { start: (entry) => (jobsStarted.push(entry), 'job-' + jobsStarted.length) }
+    }
+    if (serviceName === 'sandboxPolicy') {
+      return policyMounted ? { resolve: () => ({ mode: standingMode, workspaceRoot: ws }) } : undefined
     }
     return undefined
   },
@@ -63,6 +68,8 @@ async function resetWorkspace() {
   await rm(tmpRoot, { recursive: true, force: true })
   await mkdir(ws, { recursive: true })
   jobsStarted.length = 0
+  standingMode = 'workspace-write'
+  policyMounted = true
 }
 
 test.beforeEach(resetWorkspace)
@@ -73,12 +80,14 @@ test.after(async () => {
 // ------------------------------------------------------------- registration
 test('apply: registers tools, skill, and guidance', () => {
   assert.equal(name, 'dsh-python-env')
-  assert.ok(Array.isArray(inject) && inject.includes('tools') && inject.includes('subprocess') && inject.includes('jobs'))
+  assert.ok(
+    Array.isArray(inject) && inject.includes('tools') && inject.includes('subprocess') && inject.includes('jobs') && inject.includes('sandboxPolicy'),
+  )
   assert.deepEqual(
     tools.map((t) => t.name).sort(),
-    ['pyenv_create', 'pyenv_discover', 'pyenv_install', 'pyenv_remove'],
+    ['pyenv_create', 'pyenv_discover', 'pyenv_install', 'pyenv_remove', 'pyenv_uninstall'],
   )
-  for (const toolName of ['pyenv_create', 'pyenv_install', 'pyenv_remove']) {
+  for (const toolName of ['pyenv_create', 'pyenv_install', 'pyenv_uninstall', 'pyenv_remove']) {
     const registered = tool(toolName)
     assert.equal(typeof registered.isConcurrencySafe, 'function', toolName + ' declares concurrency safety')
     assert.equal(registered.isConcurrencySafe({}), false, toolName + ' is exclusive (mutating)')
@@ -88,6 +97,7 @@ test('apply: registers tools, skill, and guidance', () => {
   assert.equal(skills[0].name, 'python-env')
   assert.equal(typeof skills[0].content, 'string')
   assert.ok(skills[0].content.includes('pyenv_install'))
+  assert.ok(skills[0].content.includes('pyenv_uninstall'))
   assert.equal(sections.length, 1)
   assert.equal(sections[0].name, 'dsh-python-env:guidance')
   assert.equal(sections[0].order, 120)
@@ -271,4 +281,100 @@ test('pyenv_remove: refuses non-environments and escapes', async () => {
   assert.equal(existsSync(join(ws, 'plain')), true)
   const escape = await tool('pyenv_remove').execute({ venv: '..' }, execFor())
   assert.match(String(escape.error), /must stay inside/)
+})
+
+// --------------------------------------------------- session policy parity
+test('read-only sessions: mutating tools refuse, discovery still works', async () => {
+  fakeVenv(join(ws, '.venv'))
+  standingMode = 'read-only'
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const cases = [
+    ['pyenv_create', {}],
+    ['pyenv_install', { packages: ['demo'] }],
+    ['pyenv_uninstall', { packages: ['demo'] }],
+    ['pyenv_remove', { venv: '.venv' }],
+  ]
+  for (const [toolName, args] of cases) {
+    const value = await tool(toolName).execute(args, execFor())
+    assert.match(String(value.error), /read-only mode|read-only/, toolName + ' is denied in read-only sessions')
+  }
+  assert.equal(spawns.length, 0, 'no subprocess ever spawned in a read-only session')
+  const discover = await tool('pyenv_discover').execute({}, execFor())
+  assert.equal(discover.error, undefined, 'discovery stays available in read-only sessions')
+})
+
+test('mutating tools: fail closed when the policy service is absent', async () => {
+  fakeVenv(join(ws, '.venv'))
+  policyMounted = false
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const value = await tool('pyenv_create').execute({}, execFor())
+  assert.match(String(value.error), /cannot be verified/)
+  assert.equal(spawns.length, 0)
+})
+
+// ------------------------------------------------------ install extras
+test('pyenv_install: upgrade flag reaches pip as --upgrade', async () => {
+  fakeVenv(join(ws, '.venv'))
+  const { spawns, subprocess } = makeSubprocess([
+    (spec) => (spec.argv.includes('-m') && spec.argv.includes('pip') ? { exitCode: 0, stdout: 'pip 24.0' } : { exitCode: 1 }),
+    { exitCode: 0, stdout: 'Successfully installed demo' },
+  ])
+  subprocessService = subprocess
+  const value = await tool('pyenv_install').execute({ packages: ['demo'], upgrade: true }, execFor())
+  assert.equal(value.exitCode, 0)
+  assert.ok(spawns[1].spec.argv.includes('--upgrade'))
+})
+
+test('pyenv_install: editable local path is accepted and confined', async () => {
+  fakeVenv(join(ws, '.venv'))
+  const { spawns, subprocess } = makeSubprocess([
+    (spec) => (spec.argv.includes('-m') && spec.argv.includes('pip') ? { exitCode: 0, stdout: 'pip 24.0' } : { exitCode: 1 }),
+    { exitCode: 0, stdout: 'Successfully installed demo' },
+  ])
+  subprocessService = subprocess
+  const value = await tool('pyenv_install').execute({ packages: ['-e', '.'] }, execFor())
+  assert.equal(value.exitCode, 0)
+  const installArgv = spawns[1].spec.argv
+  const editablePos = installArgv.indexOf('-e')
+  assert.ok(editablePos >= 0, 'editable flag present')
+  assert.equal(installArgv[editablePos + 1], ws, 'editable path rewritten to the guarded absolute workspace path')
+})
+
+test('pyenv_install: editable escapes and remote URLs are rejected before any spawn', async () => {
+  fakeVenv(join(ws, '.venv'))
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const escape = await tool('pyenv_install').execute({ packages: ['-e', '..'] }, execFor())
+  assert.match(String(escape.error), /must stay inside/)
+  const remote = await tool('pyenv_install').execute({ packages: ['-e', 'git+https://example.com/x.git'] }, execFor())
+  assert.match(String(remote.error), /only local editable paths/)
+  assert.equal(spawns.length, 0)
+})
+
+// ---------------------------------------------------------------- uninstall
+test('pyenv_uninstall: uninstalls from the discovered environment', async () => {
+  fakeVenv(join(ws, '.venv'))
+  const { spawns, subprocess } = makeSubprocess([
+    (spec) => (spec.argv.includes('-m') && spec.argv.includes('pip') && spec.argv.includes('--version') ? { exitCode: 0, stdout: 'pip 24.0' } : { exitCode: 1 }),
+    { exitCode: 0, stdout: 'Successfully uninstalled demo-1.0' },
+  ])
+  subprocessService = subprocess
+  const value = await tool('pyenv_uninstall').execute({ packages: ['demo'] }, execFor())
+  assert.equal(value.error, undefined)
+  assert.equal(value.kind, 'foreground')
+  assert.equal(value.exitCode, 0)
+  const uninstallArgv = spawns[1].spec.argv
+  assert.deepEqual(uninstallArgv.slice(1, 4), ['-m', 'pip', 'uninstall'])
+  assert.ok(uninstallArgv.includes('-y'))
+  assert.equal(uninstallArgv[uninstallArgv.length - 1], 'demo')
+})
+
+test('pyenv_uninstall: never auto-creates an environment', async () => {
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const value = await tool('pyenv_uninstall').execute({ packages: ['demo'] }, execFor())
+  assert.match(String(value.error), /no virtual environment found/)
+  assert.equal(spawns.length, 0)
 })

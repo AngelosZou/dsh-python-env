@@ -53,6 +53,41 @@ proxy handling add no new attack surface beyond what pip already exposes
 7. **Transparent routing.** Install results report every attempt
    (index/proxy/exit code), so the user can audit exactly where package
    traffic went.
+8. **Session policy parity.** The mutating tools refuse to run in read-only
+   sessions and fail closed when the policy service is absent — the
+   plugin's host-side power never outranks the mode the user granted.
+
+## Automated environment management risks
+
+Installing packages automatically is executing third-party code, and this
+plugin makes that reachable from the agent side. The concrete risks:
+
+- **Malicious or typosquatted packages** — `pyenv_install` (including the
+  auto-created `.venv` path) downloads and executes code from the
+  configured index; nothing in that code is sandboxed. A typo in a
+  requested name can pull an attacker's package.
+- **Untrusted local code** — editable installs (`-e`) import the
+  in-workspace project into the environment; that project's build steps
+  run as-is. VCS/remote editable URLs are rejected precisely to keep this
+  surface local and visible.
+- **Supply-chain integrity** — the plugin does not pin hashes itself; the
+  index content is trusted.
+
+Mitigations:
+
+- **Opt-in**: the plugin is installed per profile by the user; profiles
+  whose agents must not install packages should not load it.
+- **Index trust**: only HTTPS index URLs are accepted; the defaults and
+  the mirror chain (TUNA/Aliyun/USTC) are long-standing public mirrors.
+- **Hash pinning**: pip's own hash enforcement is honored — pass a hashed
+  requirements file to `pyenv_install` and pip verifies every artifact.
+- **Blast radius**: every write lands in the workspace (venv,
+  `.dsh-pyenv`); a compromised environment is disposable with
+  `pyenv_remove` and cannot silently mutate the global Python
+  installation.
+- **Transparency**: each install reports every attempt (index/proxy/exit
+  code), and every invocation is a recorded tool call the user can audit.
+- **Policy parity**: read-only sessions cannot trigger any of this.
 
 ## Residual risks (accepted)
 

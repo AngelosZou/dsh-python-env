@@ -8,16 +8,16 @@
 [![Node.js >= 20](https://img.shields.io/badge/Node.js-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![npm version](https://img.shields.io/npm/v/dsh-python-env)](https://www.npmjs.com/package/dsh-python-env)
 [![GitHub issues](https://img.shields.io/github/issues/AngelosZou/dsh-python-env)](https://github.com/AngelosZou/dsh-python-env/issues)
-[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that gives one project (workspace) agent-facing Python virtual environment management:
 
-- **Four model tools** — `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_remove` — plus the `python-env` skill and a system-prompt guidance section.
+- **Five model tools** — `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_uninstall`, `pyenv_remove` — plus the `python-env` skill and a system-prompt guidance section.
 - Runs the **standard library** `python -m venv` / `pip` through the platform **subprocess channel** (host process) instead of the sandboxed shell, so venv creation, `ensurepip` bootstrapping, and package-index network access work where shell-side pip fails.
 - **Mirror and proxy fallback** — on a network-classified failure, installs retry across PyPI mirrors (TUNA, Aliyun, USTC) and probe common local proxy ports; `index` / `proxy` arguments pin either.
 - **Workspace confinement** — every path resolves inside the session workspace (case-insensitive on Windows); caches and temp state live under `<workspace>/.dsh-pyenv/`; commands are argv arrays (no shell); the global Python environment, host pip cache, and system temp are never touched.
 - **Cross-platform** — Windows / macOS / Linux layouts and interpreter chains (`Scripts` vs `bin`, `py -3` vs `python3`).
 - **No third-party dependency** — no uv, no virtualenv, no other plugin. A pip-less environment is repaired offline via `ensurepip`.
+- **Session policy parity** — the mutating tools consult the session's sandbox policy and refuse to run in read-only sessions; discovery stays available everywhere.
 
 ## Requirements
 
@@ -49,7 +49,8 @@ Agent side:
 | ---- | ------------ |
 | `pyenv_discover` | Find environments up to two levels deep by the `pyvenv.cfg` marker or conventional names (`.venv`, `venv`, `env`, `.env`, `virtualenv`); report path, interpreter, version, pip availability. |
 | `pyenv_create` | Create an environment with `python -m venv` — `name` / `root_dir` / base `python` arguments, idempotent on existing environments. |
-| `pyenv_install` | Install `packages` and/or a `requirements` file into an environment (explicit `venv` / discovered / auto-created `.venv`); repairs missing pip via `ensurepip`; mirror/proxy fallback; `run_in_background` for long installs. |
+| `pyenv_install` | Install `packages` and/or a `requirements` file into an environment (explicit `venv` / discovered / auto-created `.venv`); repairs missing pip via `ensurepip`; mirror/proxy fallback; `upgrade` flag; editable installs of local projects; `run_in_background` for long installs. |
+| `pyenv_uninstall` | Remove packages from an environment (`pip uninstall -y`); offline; never auto-creates an environment. |
 | `pyenv_remove` | Delete a real workspace environment only (refuses non-environments and workspace escapes). |
 
 ```text
@@ -63,7 +64,9 @@ pyenv_discover                                # inspect every environment
 
 Behavior notes:
 
-- Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist.
+- The mutating tools (create / install / uninstall / remove) respect the session sandbox mode and refuse to run in **read-only** sessions; discovery still works.
+- Common flows are all covered: pin versions (`"pkg==1.2.3"`), upgrade (`upgrade: true`), install from `requirements.txt` (`requirements`), and editable installs of local projects (`packages: ["-e", "."]` — the editable path must stay inside the workspace; remote/VCS editable URLs are rejected).
+- Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist; `pyenv_uninstall` never auto-creates.
 - Install results report every attempt (`index`, `proxy`, `exitCode`), so exactly how the install was routed stays visible.
 - Background installs register with the jobs registry — poll with `job_output`, stop with `job_kill`; a 30-minute hard cap applies.
 
@@ -101,6 +104,10 @@ npm test
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, including
 offline dependency resolution.
+
+## Security
+
+Installing packages means executing third-party code: `pyenv_install` (including the auto-created `.venv` path) downloads and runs code from the configured index with the host user's privileges, and editable installs import in-workspace projects as-is. The plugin mitigates this with HTTPS-only indexes, workspace-only blast radius (a compromised environment is disposable via `pyenv_remove`), full routing transparency, session policy parity (read-only sessions cannot trigger any of it), and per-profile opt-in. See [SECURITY.md](SECURITY.md) for the complete threat model and mitigation list.
 
 ## Documentation
 
