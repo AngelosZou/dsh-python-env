@@ -66,10 +66,9 @@ pyenv_discover                                # 查看全部环境
 行为说明：
 
 - 写工具（create / install / uninstall / remove）遵循会话沙箱模式，**read-only** 会话中拒绝执行；发现工具仍可用。
-- 常见需求全覆盖：钉版本（`"pkg==1.2.3"`）、升级（`upgrade: true`）、按 `requirements.txt` 安装（`requirements`）、本地项目 editable 安装（`packages: ["-e", "."]`——editable 路径必须位于工作区内，远程/VCS editable URL 会被拒绝）。
-- 未传 `venv` 时，`pyenv_install` 使用唯一发现的环境（优先 `.venv`），不存在则自动创建 `.venv`，存在多个则要求显式指定；`pyenv_uninstall` 从不自动创建。
-- 安装结果报告每一次尝试（`index`、`proxy`、`exitCode`），安装走了哪条路一目了然。
-- 后台安装注册到 jobs 运行时——用 `job_output` 轮询、`job_kill` 停止；30 分钟硬上限生效。
+- 常见需求覆盖：版本（`"pkg==1.2.3"`）、升级（`upgrade: true`）、按 `requirements.txt` 安装（`requirements`）、本地项目 editable 安装（`packages: ["-e", "."]`——editable 路径必须位于工作区内，远程/VCS editable URL 会被拒绝）。
+- 未传 `venv` 时，`pyenv_install` 使用唯一发现的环境（优先 `.venv`），不存在则自动创建 `.venv`，存在多个则要求显式指定。
+- 后台安装注册到 jobs 运行时——用 `job_output` 轮询、`job_kill` 停止。
 
 ## 工作原理
 

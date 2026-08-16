@@ -67,9 +67,8 @@ Behavior notes:
 
 - The mutating tools (create / install / uninstall / remove) respect the session sandbox mode and refuse to run in **read-only** sessions; discovery still works.
 - Common flows are all covered: pin versions (`"pkg==1.2.3"`), upgrade (`upgrade: true`), install from `requirements.txt` (`requirements`), and editable installs of local projects (`packages: ["-e", "."]` — the editable path must stay inside the workspace; remote/VCS editable URLs are rejected).
-- Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist; `pyenv_uninstall` never auto-creates.
-- Install results report every attempt (`index`, `proxy`, `exitCode`), so exactly how the install was routed stays visible.
-- Background installs register with the jobs registry — poll with `job_output`, stop with `job_kill`; a 30-minute hard cap applies.
+- Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist.
+- Background installs register with the jobs registry — poll with `job_output`, stop with `job_kill`.
 
 ## How it works
 
