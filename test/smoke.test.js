@@ -25,6 +25,7 @@ const jobsStarted = []
 let subprocessService = { spawn: () => { throw new Error('no subprocess mounted') } }
 let standingMode = 'workspace-write'
 let policyMounted = true
+let secondaryDirsList = []
 
 const mockCtx = {
   tools: { register: (tool) => tools.push(tool) },
@@ -37,6 +38,9 @@ const mockCtx = {
     }
     if (serviceName === 'sandboxPolicy') {
       return policyMounted ? { resolve: () => ({ mode: standingMode, workspaceRoot: ws }) } : undefined
+    }
+    if (serviceName === 'multiFolder') {
+      return secondaryDirsList.length > 0 ? { list: async () => ({ dirs: secondaryDirsList }) } : undefined
     }
     return undefined
   },
@@ -70,6 +74,7 @@ async function resetWorkspace() {
   jobsStarted.length = 0
   standingMode = 'workspace-write'
   policyMounted = true
+  secondaryDirsList = []
 }
 
 test.beforeEach(resetWorkspace)
@@ -112,7 +117,7 @@ test('pyenv_discover: reports environments with probe data', async () => {
   subprocessService = subprocess
   const value = await tool('pyenv_discover').execute({}, execFor())
   assert.equal(value.error, undefined)
-  assert.equal(value.scanned, ws)
+  assert.deepEqual(value.scanned, [ws])
   assert.equal(value.venvs.length, 1)
   const venv = value.venvs[0]
   assert.equal(venv.name, '.venv')
@@ -376,5 +381,63 @@ test('pyenv_uninstall: never auto-creates an environment', async () => {
   subprocessService = subprocess
   const value = await tool('pyenv_uninstall').execute({ packages: ['demo'] }, execFor())
   assert.match(String(value.error), /no virtual environment found/)
+  assert.equal(spawns.length, 0)
+})
+
+// --------------------------------- optional multi-folder compatibility
+test('optional compatibility: secondary directories join the allowed roots', async () => {
+  const sec = join(tmpRoot, 'sec')
+  fakeVenv(join(sec, '.venv'))
+  secondaryDirsList = [sec]
+  const { subprocess } = makeSubprocess([
+    (spec) => (spec.argv[spec.argv.length - 1] === '--version' ? versionOutcome('Python 3.12.4') : { exitCode: 1 }),
+  ])
+  subprocessService = subprocess
+  const discover = await tool('pyenv_discover').execute({}, execFor())
+  assert.equal(discover.error, undefined)
+  assert.ok(discover.scanned.includes(ws) && discover.scanned.includes(sec), 'both roots scanned')
+  assert.ok(discover.venvs.some((v) => v.path === join(sec, '.venv')), 'secondary environment reported')
+})
+
+test('optional compatibility: create and install work inside a secondary directory', async () => {
+  const sec = join(tmpRoot, 'sec')
+  secondaryDirsList = [sec]
+  const { spawns, subprocess } = makeSubprocess([
+    (spec) => (spec.argv[spec.argv.length - 1] === '--version' ? versionOutcome('Python 3.13.2') : venvCreateOutcome(spec)),
+    venvCreateOutcome,
+    (spec) => (spec.argv[spec.argv.length - 1] === '--version' ? versionOutcome('Python 3.13.2') : { exitCode: 1 }),
+    (spec) => (spec.argv.includes('-m') && spec.argv.includes('pip') ? { exitCode: 0, stdout: 'pip 24.0' } : { exitCode: 1 }),
+    { exitCode: 0, stdout: 'Successfully installed demo' },
+  ])
+  subprocessService = subprocess
+  const created = await tool('pyenv_create').execute({ root_dir: sec, name: 'env' }, execFor())
+  assert.equal(created.error, undefined)
+  assert.equal(created.created, true)
+  assert.equal(created.path, join(sec, 'env'))
+  const installed = await tool('pyenv_install').execute({ packages: ['demo'], venv: join(sec, 'env') }, execFor())
+  assert.equal(installed.error, undefined)
+  assert.equal(installed.exitCode, 0)
+  assert.ok(spawns[4].spec.argv[0].startsWith(join(sec, 'env')), 'pip ran with the secondary environment interpreter')
+})
+
+test('optional compatibility: read-only sessions still deny secondary mutations', async () => {
+  const sec = join(tmpRoot, 'sec')
+  fakeVenv(join(sec, '.venv'))
+  secondaryDirsList = [sec]
+  standingMode = 'read-only'
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const value = await tool('pyenv_install').execute({ packages: ['demo'], venv: join(sec, '.venv') }, execFor())
+  assert.match(String(value.error), /read-only/)
+  assert.equal(spawns.length, 0)
+})
+
+test('no multi-folder installed: zero effect, no extra context', async () => {
+  const discover = await tool('pyenv_discover').execute({}, execFor())
+  assert.deepEqual(discover.scanned, [ws])
+  const { spawns, subprocess } = makeSubprocess([])
+  subprocessService = subprocess
+  const escape = await tool('pyenv_create').execute({ root_dir: join(tmpRoot, 'outside') }, execFor())
+  assert.match(String(escape.error), /must stay inside/)
   assert.equal(spawns.length, 0)
 })

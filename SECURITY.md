@@ -56,6 +56,11 @@ proxy handling add no new attack surface beyond what pip already exposes
 8. **Session policy parity.** The mutating tools refuse to run in read-only
    sessions and fail closed when the policy service is absent — the
    plugin's host-side power never outranks the mode the user granted.
+9. **Secondary roots are user-managed.** The optional dsh-multi-folder
+   compatibility only extends the allowed roots to directories the USER
+   configured; the agent can never self-grant a secondary directory
+   (multi-folder owns that guard), and without multi-folder installed the
+   probe is a no-op.
 
 ## Automated environment management risks
 

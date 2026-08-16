@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { OutsideWorkspaceError, guardWorkspacePath, isWithin, sessionCwd } from '../lib/guard.js'
+import { OutsideWorkspaceError, guardAllowedPath, guardWorkspacePath, isWithin, sessionCwd } from '../lib/guard.js'
 
 test('isWithin: equality and containment', () => {
   assert.equal(isWithin('/a/b', '/a/b'), true)
@@ -44,6 +44,18 @@ test('guardWorkspacePath: rejects escapes', () => {
     }
   })()
   assert.match(String(error.message), /venv must stay inside/)
+})
+
+test('guardAllowedPath: extra roots extend the allowed set', () => {
+  const ws = join('X:', 'ws')
+  const sec = join('X:', 'sec')
+  assert.equal(guardAllowedPath(sec, ws, [sec]), sec)
+  assert.equal(guardAllowedPath(join(sec, '.venv'), ws, [sec]), join(sec, '.venv'))
+  assert.equal(guardAllowedPath('.venv', ws, [sec]), join(ws, '.venv'), 'relative paths stay primary')
+  assert.equal(guardAllowedPath(undefined, ws, [sec]), ws)
+  assert.throws(() => guardAllowedPath(join('X:', 'other'), ws, [sec]), OutsideWorkspaceError)
+  assert.throws(() => guardAllowedPath(join(ws, '..', 'escape'), ws, [sec]), OutsideWorkspaceError)
+  assert.equal(guardAllowedPath(join(ws, '.venv'), ws, []), join(ws, '.venv'), 'no extra roots = guardWorkspacePath')
 })
 
 test('sessionCwd: agent chain first, then process cwd', () => {

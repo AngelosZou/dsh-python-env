@@ -78,6 +78,34 @@ pattern): `read-only` sessions are refused with a clear error,
 service fails closed. `pyenv_discover` stays available in every mode
 (read-only by construction).
 
+## Optional compatibility: dsh-multi-folder secondary directories
+
+There is deliberately no dependency on dsh-multi-folder. At call time each
+tool silently probes `ctx.get('multiFolder')` — the service multi-folder
+provides — through the helpers in `lib/secondary.js`; when the service is
+absent, its `list` method is missing, or it throws, every helper is a no-op
+and the plugin behaves exactly as if multi-folder did not exist: no extra
+context, no user-visible difference, and `multiFolder` is never declared in
+this plugin's inject list.
+
+When multi-folder IS configured, the session's secondary working
+directories join the primary workspace as allowed roots:
+
+- `guardAllowedPath` accepts targets inside any allowed root; relative
+  arguments still resolve against the primary workspace.
+- `resolveExistingVenv(..., extraRoots)` resolves explicit venv paths and
+  discovers across all roots; auto-created environments (`.venv`) always
+  land in the primary workspace.
+- `pyenv_discover` scans every root when `root_dir` is omitted and reports
+  the scanned root set.
+- The policy gate is unchanged: the session's standing mode governs
+  primary and secondary roots identically, which is exactly the mode
+  parity multi-folder's own interception provides (read-only denies,
+  workspace-write allows).
+
+Caches (`.dsh-pyenv`) always stay in the primary workspace regardless of
+where the environment lives.
+
 ## Tools
 
 | Tool | Semantics | Concurrency |
@@ -146,12 +174,13 @@ If ensurepip itself is absent, the error carries the Debian/Ubuntu
 
 `test/*.test.js` run without the DSH runtime (`node --test
 --test-isolation=none "test/*.test.js"`): pure-logic units (guard, paths,
-policy gate, venv target resolution, pip chain/classification/argv, JobLog,
-interpreter resolution) plus a smoke suite that applies the real plugin
-against a mock ctx and drives all five tools with fake subprocess/jobs
-services and a real temporary workspace. Because the real `defineTool`
-runs, every parameter and output schema is validated against the enforced
-JSON Schema subset at registration time.
+policy gate, secondary probe, venv target resolution, pip
+chain/classification/argv, JobLog, interpreter resolution) plus a smoke
+suite that applies the real plugin against a mock ctx and drives all five
+tools — including the optional multi-folder compatibility paths — with fake
+subprocess/jobs services and a real temporary workspace. Because the real
+`defineTool` runs, every parameter and output schema is validated against
+the enforced JSON Schema subset at registration time.
 
 ## Known limitations
 

@@ -105,6 +105,10 @@ npm test
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, including
 offline dependency resolution.
 
+## Compatibility
+
+**dsh-multi-folder (optional, zero dependency)** — when the dsh-multi-folder plugin is also installed, its configured secondary working directories automatically become valid roots for every `pyenv_*` tool: environments there can be discovered, created, installed into, uninstalled from, and removed under the same session mode multi-folder's interception grants (workspace-write sessions can write, read-only sessions are still refused by the policy gate). The integration is a silent capability probe — without multi-folder nothing changes: no extra context, no dependency, no user-visible difference.
+
 ## Security
 
 Installing packages means executing third-party code: `pyenv_install` (including the auto-created `.venv` path) downloads and runs code from the configured index with the host user's privileges, and editable installs import in-workspace projects as-is. The plugin mitigates this with HTTPS-only indexes, workspace-only blast radius (a compromised environment is disposable via `pyenv_remove`), full routing transparency, session policy parity (read-only sessions cannot trigger any of it), and per-profile opt-in. See [SECURITY.md](SECURITY.md) for the complete threat model and mitigation list.

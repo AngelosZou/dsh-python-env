@@ -66,3 +66,34 @@ test('discovery: marker-less name directories are ignored for targets', async ()
   await dirOnly(join(root, 'venv'))
   assert.equal(await resolveExistingVenv(root, undefined), null, 'known name without marker is not a usable target')
 })
+
+test('explicit venv: absolute path inside an extra root resolves', async () => {
+  const sec = join(root, '..', 'venv-sec')
+  await venv(join(sec, '.venv'))
+  try {
+    assert.equal(await resolveExistingVenv(root, join(sec, '.venv'), [sec]), join(sec, '.venv'))
+  } finally {
+    await rm(sec, { recursive: true, force: true })
+  }
+})
+
+test('discovery: spans the primary workspace and extra roots', async () => {
+  const sec = join(root, '..', 'venv-sec')
+  await venv(join(sec, '.venv'))
+  try {
+    assert.equal(await resolveExistingVenv(root, undefined, [sec]), join(sec, '.venv'))
+  } finally {
+    await rm(sec, { recursive: true, force: true })
+  }
+})
+
+test('discovery: relative venv arguments still resolve against the primary workspace', async () => {
+  await venv(join(root, 'env'))
+  const sec = join(root, '..', 'venv-sec')
+  await venv(join(sec, 'env'))
+  try {
+    assert.equal(await resolveExistingVenv(root, 'env', [sec]), join(root, 'env'))
+  } finally {
+    await rm(sec, { recursive: true, force: true })
+  }
+})

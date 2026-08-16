@@ -102,6 +102,10 @@ npm test
 
 开发循环（含离线依赖解析）见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## 兼容性
+
+**dsh-multi-folder（可选，零依赖）** —— 当同时安装了 dsh-multi-folder 插件时，其配置的副工作目录会自动成为所有 `pyenv_*` 工具的合法根目录：可以在其中发现、创建、安装、卸载、删除环境，并遵循 multi-folder 拦截授予的同一会话模式（workspace-write 会话可写，read-only 会话仍被策略门拒绝）。该集成为静默能力探测——未安装 multi-folder 时一切不变：无额外上下文、无依赖、无任何用户可感知差异。
+
 ## 安全
 
 安装包意味着执行第三方代码：`pyenv_install`（含自动创建 `.venv` 的路径）会以宿主用户权限从配置的索引下载并运行代码，editable 安装会原样引入工作区内的项目。插件的缓解措施包括：仅 HTTPS 索引、爆炸半径限定在工作区（被攻破的环境可用 `pyenv_remove` 一次性丢弃）、路由全程透明、会话模式对齐（read-only 会话无法触发任何安装）、按 profile 选择安装。完整威胁模型与缓解清单见 [SECURITY.md](SECURITY.md)。
