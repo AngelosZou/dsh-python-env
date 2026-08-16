@@ -64,3 +64,9 @@ proxy handling add no new attack surface beyond what pip already exposes
   (documented limitation, not a security boundary breach).
 - The plugin's own code runs with host privileges; it is dependency-free
   and its only execution surface is the four tools documented above.
+
+## Reporting a vulnerability
+
+Please report security issues privately through
+<https://github.com/AngelosZou/dsh-python-env/security/advisories> instead of
+opening a public issue. You should receive a response within a week.

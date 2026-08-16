@@ -1,71 +1,116 @@
 # dsh-python-env
 
-DeepSeek Harness plugin: **workspace-scoped Python virtual environment
-management for agents**. Discover, create, install into, and remove virtual
-environments — with every mutation confined to the session workspace and the
-global Python environment never touched.
+**English** | [中文](README.zh.md)
 
-## Why
+> Workspace-scoped Python virtual environment management for a DeepSeek Harness project — discover, create, install into, and remove virtual environments without sandbox, network, or subprocess pitfalls.
 
-The DSH shell sandbox blocks two things pip needs: CPython's owner-only
-temporary directories (Windows `[Errno 13]` during `ensurepip`/wheel
-unpacking) and package-index network access. This plugin runs
-`python`/`pip`/`venv` through the platform **subprocess channel** (host
-process, like the graphlint plugin) instead of the sandboxed shell, and
-compensates with strict workspace confinement:
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js >= 20](https://img.shields.io/badge/Node.js-%3E%3D20-brightgreen)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/dsh-python-env)](https://www.npmjs.com/package/dsh-python-env)
+[![GitHub issues](https://img.shields.io/github/issues/AngelosZou/dsh-python-env)](https://github.com/AngelosZou/dsh-python-env/issues)
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
-- every path resolves inside the workspace (case-insensitive on Windows);
-- caches and temp state live under `<workspace>/.dsh-pyenv/`;
-- commands are argv arrays — no shell interpolation;
-- the global interpreter/pip cache/system temp are never touched;
-- on network failure, installs retry across mirrors (TUNA, Aliyun, USTC)
-  and probe common local proxy ports.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that gives one project (workspace) agent-facing Python virtual environment management:
 
-**Standard library only** — no uv, no virtualenv, no other plugin.
+- **Four model tools** — `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_remove` — plus the `python-env` skill and a system-prompt guidance section.
+- Runs the **standard library** `python -m venv` / `pip` through the platform **subprocess channel** (host process) instead of the sandboxed shell, so venv creation, `ensurepip` bootstrapping, and package-index network access work where shell-side pip fails.
+- **Mirror and proxy fallback** — on a network-classified failure, installs retry across PyPI mirrors (TUNA, Aliyun, USTC) and probe common local proxy ports; `index` / `proxy` arguments pin either.
+- **Workspace confinement** — every path resolves inside the session workspace (case-insensitive on Windows); caches and temp state live under `<workspace>/.dsh-pyenv/`; commands are argv arrays (no shell); the global Python environment, host pip cache, and system temp are never touched.
+- **Cross-platform** — Windows / macOS / Linux layouts and interpreter chains (`Scripts` vs `bin`, `py -3` vs `python3`).
+- **No third-party dependency** — no uv, no virtualenv, no other plugin. A pip-less environment is repaired offline via `ensurepip`.
 
-## Tools
+## Requirements
 
-| Tool | What it does |
-| ---- | ------------ |
-| `pyenv_discover` | Find environments up to two levels deep by the `pyvenv.cfg` marker or conventional names (`.venv`, `venv`, `env`, `.env`, `virtualenv`); report path, interpreter, version, pip. |
-| `pyenv_create` | Create an environment with `python -m venv` (name / root_dir / base interpreter args; idempotent). |
-| `pyenv_install` | Install `packages` and/or a `requirements` file into an environment (explicit / discovered / auto-created `.venv`); repairs missing pip via `ensurepip`; mirror/proxy fallback; background mode. |
-| `pyenv_remove` | Delete a real workspace environment (refuses non-environments). |
-
-Cross-platform: Windows (`Scripts\python.exe`), macOS/Linux (`bin/python`).
+- Node.js >= 20
+- A DSH profile composed from `@deepseek-ai/dsh-base` (it provides the `subprocess`, `jobs`, `tools`, and `skills` services the plugin uses)
+- Python >= 3.8 (on PATH, or passed explicitly) — only for the environments the plugin manages
 
 ## Install
 
-```sh
-dsh plugin --profile <profile> add link:<absolute-path-to-this-repo>
+From npm:
+
+```bash
+dsh plugin --profile web add dsh-python-env
 ```
 
-(The standard web profile is `web`.) Restart the DSH host (or reload
-plugins) so the bundle row activates. The tools then appear in agent
-sessions: `pyenv_discover`, `pyenv_create`, `pyenv_install`,
-`pyenv_remove`, plus the `python-env` skill.
+From a local checkout (development):
 
-## Quickstart (agent side)
+```bash
+dsh plugin --profile web add link:<absolute-path-to-this-repo>
+```
+
+Then **restart the DSH backend** — the host composition loads at process start. The tools appear in new sessions: `pyenv_discover`, `pyenv_create`, `pyenv_install`, `pyenv_remove`, plus the `python-env` skill.
+
+## Usage
+
+Agent side:
+
+| Tool | What it does |
+| ---- | ------------ |
+| `pyenv_discover` | Find environments up to two levels deep by the `pyvenv.cfg` marker or conventional names (`.venv`, `venv`, `env`, `.env`, `virtualenv`); report path, interpreter, version, pip availability. |
+| `pyenv_create` | Create an environment with `python -m venv` — `name` / `root_dir` / base `python` arguments, idempotent on existing environments. |
+| `pyenv_install` | Install `packages` and/or a `requirements` file into an environment (explicit `venv` / discovered / auto-created `.venv`); repairs missing pip via `ensurepip`; mirror/proxy fallback; `run_in_background` for long installs. |
+| `pyenv_remove` | Delete a real workspace environment only (refuses non-environments and workspace escapes). |
 
 ```text
-pyenv_create                                  # -> .venv, python path reported
+pyenv_create                                  # -> .venv, interpreter path reported
 pyenv_install { packages: ["pytest>=8"] }     # installs into .venv
 pyenv_install { requirements: "requirements.txt" }
-pyenv_discover                                # inspect everything
-# run code with the reported interpreter, e.g. <ws>\.venv\Scripts\python.exe
+pyenv_discover                                # inspect every environment
+# run code with the reported interpreter:
+#   Windows: <venv>\Scripts\python.exe    macOS/Linux: <venv>/bin/python
 ```
+
+Behavior notes:
+
+- Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist.
+- Install results report every attempt (`index`, `proxy`, `exitCode`), so exactly how the install was routed stays visible.
+- Background installs register with the jobs registry — poll with `job_output`, stop with `job_kill`; a 30-minute hard cap applies.
+
+## How it works
+
+- **Subprocess channel** — the DSH shell sandbox blocks CPython's owner-only temp directories (Windows `[Errno 13]` during `ensurepip`/wheel unpacking) and package-index network access. Plugin code runs in the host process, so every python/pip/venv invocation goes through `ctx.subprocess` (the same channel the graphlint plugin uses) with argv arrays, byte-capped collected output, and tree-scoped termination. The unrestricted token is compensated by the confinement model below — not by weakening the sandbox.
+- **Confinement** — every model-influenced path passes `guardWorkspacePath` (absolute resolution + containment, `..`-safe); venv names are single-segment regex-validated and re-guarded after `join`; children get `PIP_CACHE_DIR` / TMP / TEMP / TMPDIR re-pointed into `<workspace>/.dsh-pyenv/`.
+- **Install attempt chain** — default index first; a network-classified failure (connection reset/timeout/DNS — never "No matching distribution found" or TLS errors) falls back across TUNA → Aliyun → USTC mirrors and, once, probes common local proxy ports (7890, 7891, 10809, 10808, 8888) to retry the same index through a live one.
+- **ensurepip repair** — `<venv-python> -m ensurepip --upgrade` bootstraps pip offline from bundled wheels; when ensurepip itself is absent the error carries the Debian/Ubuntu `python3-venv` hint.
+- **Concurrency** — mutating tools declare `isConcurrencySafe: false`, so the scheduler serializes them; discovery stays read-only.
+- **Skill & guidance** — the `python-env` skill teaches tool-first usage and the "never escalate for pip" rule; one system-prompt section (`dsh-python-env:guidance`, order 120) reminds every session that the pyenv tools are the sanctioned path.
+
+## Project layout
+
+| Path | Purpose |
+| ---- | ------- |
+| `cordis.patch.yml` | Profile patch layer inserting the `dsh-python-env` row |
+| `lib/index.js` | Host plugin: registers the four tools, the skill, and the guidance section |
+| `lib/tools/` | The four model tools (`discover` / `create` / `install` / `remove`) |
+| `lib/guard.js`, `lib/venv.js`, `lib/layout.js`, `lib/paths.js`, `lib/python.js` | Workspace confinement, venv resolution, discovery, platform layouts, interpreter chains |
+| `lib/runner.js`, `lib/pip.js`, `lib/envdir.js` | Subprocess seam, install chain, workspace caches |
+| `test/` | Runtime-free behavior tests (see Development) |
+| `docs/` | Design and analysis documents |
 
 ## Development
 
-```sh
-# tests (no DSH runtime required; mocks stand in for the platform services)
-node --test --test-isolation=none "test/*.test.js"
+No build step: the plugin is plain ESM and the tests run with Node directly
+(the mock ctx stands in for the DSH services; the real `defineTool` validates
+every schema):
+
+```bash
+npm test
+# or: node --test --test-isolation=none "test/*.test.js"
 ```
 
-Local dev resolves `@deepseek-ai/dsh-tools` via the profile's node_modules
-(junction) or `npm install`. See [docs/design.md](docs/design.md) for the
-architecture and [SECURITY.md](SECURITY.md) for the threat model.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, including
+offline dependency resolution.
+
+## Documentation
+
+- [docs/design.md](docs/design.md) — architecture, confinement model, install chain, known limitations
+- [SECURITY.md](SECURITY.md) — threat model and compensating controls
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests are welcome.
 
 ## License
 
-MIT
+[MIT](LICENSE)
