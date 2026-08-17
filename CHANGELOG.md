@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Time budgets cut to two minutes.** Every pyenv_* tool now must finish
+  within 120 seconds: `pyenv_create` and `pyenv_uninstall` moved from 5-minute
+  budgets, `pyenv_install` from a 10-minute foreground budget, and background
+  installs from a 30-minute hard cap to the same 2-minute cap. A per-call
+  `timeoutMs` override on install/uninstall is honored but capped at 120000 ms
+  — environment management commands no longer run for tens of minutes.
+- **Detailed stop-reasons on timeout.** The tools now own their deadlines
+  instead of declaring a framework budget (which surfaced only a bare "tool
+  call timed out" message). When a deadline fires, the running process tree is
+  terminated and the tool returns a detailed explanation: the operation that
+  was still running, the attempts already tried (index/proxy/exit), the last
+  output, likely causes (slow or unreachable index/network, oversized
+  dependency set), and concrete next steps. A subprocess terminated without a
+  normal exit (caller cancellation) gets the same treatment via a dedicated
+  aborted-reason message.
+- Termination grace periods trimmed so a stopped process tree settles quickly
+  (pip install/uninstall attempts 15s → 5s, venv creation 60s → 15s,
+  ensurepip bootstrap 60s → 30s), keeping the detailed stop-reason close to
+  the time budget.
+
 ## [0.1.0] — 2026-08-16
 
 ### Added

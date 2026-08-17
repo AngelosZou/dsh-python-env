@@ -69,6 +69,7 @@ pyenv_discover                                # 查看全部环境
 - 常见需求覆盖：版本（`"pkg==1.2.3"`）、升级（`upgrade: true`）、按 `requirements.txt` 安装（`requirements`）、本地项目 editable 安装（`packages: ["-e", "."]`——editable 路径必须位于工作区内，远程/VCS editable URL 会被拒绝）。
 - 未传 `venv` 时，`pyenv_install` 使用唯一发现的环境（优先 `.venv`），不存在则自动创建 `.venv`，存在多个则要求显式指定。
 - 后台安装注册到 jobs 运行时——用 `job_output` 轮询、`job_kill` 停止。
+- **两分钟预算。** 每个 pyenv 工具必须在 2 分钟内完成（发现工具 1 分钟内）。超出预算时工具会终止运行中的进程树，并返回详细的停止原因——正在执行的操作、已尝试的索引/代理、最后输出、可能的原因与下一步建议——而不是挂起或只报一个干巴巴的超时。后台安装同样受 2 分钟上限约束；install/uninstall 的按次 `timeoutMs` 参数仍然有效，但上限为 120000 ms。
 
 ## 工作原理
 

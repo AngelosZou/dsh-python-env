@@ -138,8 +138,25 @@ mutex is needed inside one DSH process (see Limitations for multi-process).
    agent can see exactly how the install was routed.
 
 Background installs run the same chain inside a jobs-registry job with an
-in-memory bounded `JobLog` streaming reads and a 30-minute hard cap that
+in-memory bounded `JobLog` streaming reads and a 2-minute hard cap that
 terminates the live attempt tree.
+
+## Tool time budgets
+
+Environment management commands must not run for tens of minutes: every
+`pyenv_*` tool is budgeted to finish within two minutes
+(`DEFAULT_TOOL_TIMEOUT_MS` / `DEFAULT_INSTALL_TIMEOUT_MS` /
+`BACKGROUND_INSTALL_CAP_MS` = 120000 ms; discovery stays at 60 s). The tools
+**own their deadlines** rather than declaring a framework `timeoutMs`: each
+mutating tool arms an internal watchdog (`armDeadline`) that covers the whole
+execute body, terminates the currently live subprocess tree when the budget
+elapses, and returns a detailed stop-reason (`renderStopReason`) — the
+operation that was still running, the attempts tried so far, the last output,
+likely causes, and next steps — instead of the framework's bare "tool call
+timed out" message. A subprocess terminated without a normal exit (caller
+cancellation) is reported through `renderAbortedReason`. A per-call
+`timeoutMs` override on install/uninstall is honored but capped at 120000 ms;
+background installs share the same 2-minute cap.
 
 ## pip repair (ensurepip)
 

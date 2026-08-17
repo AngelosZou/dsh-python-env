@@ -12,7 +12,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { apply, inject, name } from '../lib/index.js'
-import { makeSubprocess } from './helpers.mjs'
+import { collector, makeHandle, makeSubprocess } from './helpers.mjs'
 
 const tmpRoot = join(process.cwd(), 'test', '.tmp', 'smoke')
 const ws = join(tmpRoot, 'ws')
@@ -263,6 +263,48 @@ test('pyenv_install: background path registers a job and streams', async () => {
   assert.equal(outcome.status, 'completed')
   assert.match(outcome.detail, /default/)
   assert.match(body.readOutput(), /Successfully installed demo/)
+})
+
+// ------------------------------------------- plugin-owned deadlines
+/** Subprocess service whose pip --version probe succeeds and every other
+ *  spawn hangs until terminated (exitCode null) — for deadline tests. */
+function hangingService() {
+  return {
+    spawn(spec) {
+      const isProbe = spec.argv.includes('pip') && spec.argv.includes('--version')
+      if (isProbe) return makeHandle({ exitCode: 0, stdout: 'pip 24.0' })
+      let resolveDone
+      const done = new Promise((resolve) => { resolveDone = resolve })
+      return {
+        done,
+        collected: { stdout: collector('Collecting demo...\n'), stderr: collector('') },
+        terminate() { resolveDone({ exitCode: null }) },
+      }
+    },
+  }
+}
+
+test('pyenv_install: deadline fires on a hanging pip and returns a detailed stop-reason', async () => {
+  fakeVenv(join(ws, '.venv'))
+  subprocessService = hangingService()
+  const value = await tool('pyenv_install').execute({ packages: ['demo'], timeoutMs: 30 }, execFor())
+  assert.equal(typeof value.error, 'string')
+  assert.match(value.error, /pyenv_install stopped before completing/)
+  assert.match(value.error, /time budget \(30 ms\)/)
+  assert.match(value.error, /process tree was terminated/)
+  assert.match(value.error, /attempts: default \(exit null\)/)
+  assert.match(value.error, /last output:/)
+  assert.match(value.error, /Next steps:/)
+})
+
+test('pyenv_uninstall: deadline fires on a hanging pip and returns a detailed stop-reason', async () => {
+  fakeVenv(join(ws, '.venv'))
+  subprocessService = hangingService()
+  const value = await tool('pyenv_uninstall').execute({ packages: ['demo'], timeoutMs: 30 }, execFor())
+  assert.equal(typeof value.error, 'string')
+  assert.match(value.error, /pyenv_uninstall stopped before completing/)
+  assert.match(value.error, /time budget \(30 ms\)/)
+  assert.match(value.error, /process tree was terminated/)
 })
 
 // ----------------------------------------------------------------- remove

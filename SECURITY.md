@@ -46,8 +46,10 @@ proxy handling add no new attack surface beyond what pip already exposes
    the plugin forwards only its explicit env layer (encoding, cache/tmp
    paths, pip knobs).
 5. **Bounded resources.** Collected output is byte-capped with spill files;
-   every spawn has grace-kill semantics; background installs have a
-   30-minute hard cap; discovery is budgeted (depth, dir count, probes).
+   every spawn has grace-kill semantics; every tool owns a 2-minute deadline
+   that terminates the live process tree and returns a detailed stop-reason;
+   background installs have the same 2-minute hard cap; discovery is
+   budgeted (depth, dir count, probes).
 6. **Concurrency.** Mutating tools are exclusive at the scheduler level,
    so the agent cannot race two installs against one environment.
 7. **Transparent routing.** Install results report every attempt

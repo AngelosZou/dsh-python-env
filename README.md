@@ -69,6 +69,7 @@ Behavior notes:
 - Common flows are all covered: pin versions (`"pkg==1.2.3"`), upgrade (`upgrade: true`), install from `requirements.txt` (`requirements`), and editable installs of local projects (`packages: ["-e", "."]` — the editable path must stay inside the workspace; remote/VCS editable URLs are rejected).
 - Without a `venv` argument, `pyenv_install` uses the single discovered environment (preferring `.venv`), auto-creates `.venv` when none exists, and asks for an explicit `venv` when several exist.
 - Background installs register with the jobs registry — poll with `job_output`, stop with `job_kill`.
+- **Two-minute budget.** Every pyenv tool must finish within 2 minutes (discovery within 1). A tool that exceeds its budget terminates the running process tree and returns a detailed stop-reason — what was still running, the attempts tried, the last output, likely causes, and next steps — instead of hanging or reporting a bare timeout. Background installs share the same 2-minute cap; a per-call `timeoutMs` override on install/uninstall is honored but capped at 120000 ms.
 
 ## How it works
 
