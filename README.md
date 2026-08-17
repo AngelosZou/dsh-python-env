@@ -107,7 +107,7 @@ offline dependency resolution.
 
 ## Compatibility
 
-**dsh-multi-folder (optional, zero dependency)** — when the dsh-multi-folder plugin is also installed, its configured secondary working directories automatically become valid roots for every `pyenv_*` tool: environments there can be discovered, created, installed into, uninstalled from, and removed under the same session mode multi-folder's interception grants (workspace-write sessions can write, read-only sessions are still refused by the policy gate). The integration is a silent capability probe — without multi-folder nothing changes: no extra context, no dependency, no user-visible difference.
+When DSH also has the [dsh-multi-folder](https://github.com/AngelosZou/dsh-multi-folder) plugin installed, the Agent can use the tools provided by dsh-python-env to manage the secondary working directories specified by the user in dsh-multi-folder, even when those working directories are outside the main working directory. Environment management permissions for the secondary working directories are the same as for the main working directory; when the Agent runs in Read Only mode, the tools refuse any operation. This compatibility is automatic and optional — it takes effect automatically whenever both dsh-multi-folder and dsh-python-env are installed in the DSH environment. If dsh-multi-folder is not installed, dsh-python-env's functionality is unaffected. This compatibility introduces no additional performance burden or context overhead.
 
 ## Security
 

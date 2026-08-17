@@ -104,7 +104,7 @@ npm test
 
 ## 兼容性
 
-**dsh-multi-folder（可选，零依赖）** —— 当同时安装了 dsh-multi-folder 插件时，其配置的副工作目录会自动成为所有 `pyenv_*` 工具的合法根目录：可以在其中发现、创建、安装、卸载、删除环境，并遵循 multi-folder 拦截授予的同一会话模式（workspace-write 会话可写，read-only 会话仍被策略门拒绝）。该集成为静默能力探测——未安装 multi-folder 时一切不变：无额外上下文、无依赖、无任何用户可感知差异。
+当 DSH 同时安装了 [dsh-multi-folder](https://github.com/AngelosZou/dsh-multi-folder) 插件时，Agent 可以通过 dsh-python-env 提供的工具管理在 dsh-multi-folder 中由用户指定的副工作目录，即使该工作目录不在主要工作目录内。对副工作目录的环境管理权限与主要工作目录一致，当Agent处于Read Only模式运行时，工具会拒绝任何操作。这一兼容是自动及可选的，当DSH环境中同时安装了dsh-multi-folder和dsh-python-env时这一兼容功能会自动生效。如果环境中未安装dsh-multi-folder，这不会对dsh-python-env的功能造成任何影响。这一兼容不会带来任何额外的性能负担或上下文开销。
 
 ## 安全
 
