@@ -217,7 +217,7 @@ test('runInstallAttempts: shouldStop ends the chain after the in-flight attempt'
 
 test('ensurePip: healthy pip needs no repair', async () => {
   const { spawns, subprocess } = makeSubprocess([{ exitCode: 0, stdout: 'pip 24.0' }])
-  await ensurePip(subprocess, 'p', {}, undefined)
+  await ensurePip(subprocess, 'p', process.cwd(), {}, undefined)
   assert.equal(spawns.length, 1)
   assert.deepEqual(spawns[0].spec.argv, ['p', '-m', 'pip', '--version'])
 })
@@ -227,7 +227,7 @@ test('ensurePip: missing pip is repaired via ensurepip', async () => {
     { exitCode: 1, stderr: 'No module named pip' },
     { exitCode: 0, stdout: 'Successfully installed pip-24.0' },
   ])
-  await ensurePip(subprocess, 'p', {}, undefined)
+  await ensurePip(subprocess, 'p', process.cwd(), {}, undefined)
   assert.equal(spawns.length, 2)
   assert.deepEqual(spawns[1].spec.argv, ['p', '-m', 'ensurepip', '--upgrade'])
 })
@@ -237,5 +237,5 @@ test('ensurePip: unrecoverable failure carries a platform hint', async () => {
     { exitCode: 1, stderr: 'No module named pip' },
     { exitCode: 1, stderr: 'No module named ensurepip' },
   ])
-  await assert.rejects(() => ensurePip(subprocess, 'p', {}, undefined), /python3-venv/)
+  await assert.rejects(() => ensurePip(subprocess, 'p', process.cwd(), {}, undefined), /python3-venv/)
 })

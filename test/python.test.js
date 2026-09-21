@@ -40,7 +40,7 @@ test('resolveBaseInterpreter: falls through the chain and returns a verified pre
     { exitCode: 1, stderr: 'not found' }, // python fails
     { exitCode: 0, stdout: 'Python 3.13.2\n' }, // py -3 works
   ])
-  const base = await resolveBaseInterpreter(subprocess, undefined, 'win32')
+  const base = await resolveBaseInterpreter(subprocess, undefined, process.cwd(), 'win32')
   assert.deepEqual(base.argv, ['py', '-3'])
   assert.equal(base.version.text, 'Python 3.13.2')
   assert.equal(spawns.length, 2)
@@ -50,7 +50,7 @@ test('resolveBaseInterpreter: falls through the chain and returns a verified pre
 
 test('resolveBaseInterpreter: explicit unsupported version does not fall back', async () => {
   const { spawns, subprocess } = makeSubprocess([{ exitCode: 0, stdout: 'Python 3.7.9\n' }])
-  await assert.rejects(() => resolveBaseInterpreter(subprocess, 'python3.7', 'linux'), /unsupported Python 3\.7\.9/)
+  await assert.rejects(() => resolveBaseInterpreter(subprocess, 'python3.7', process.cwd(), 'linux'), /unsupported Python 3\.7\.9/)
   assert.equal(spawns.length, 1, 'explicit request must not silently fall back')
 })
 
@@ -59,5 +59,5 @@ test('resolveBaseInterpreter: exhaustive failure carries guidance', async () => 
     { exitCode: 1, stderr: 'boom' },
     { exitCode: 1, stderr: 'boom' },
   ])
-  await assert.rejects(() => resolveBaseInterpreter(subprocess, undefined, 'linux'), /no usable base Python interpreter found/)
+  await assert.rejects(() => resolveBaseInterpreter(subprocess, undefined, process.cwd(), 'linux'), /no usable base Python interpreter found/)
 })
